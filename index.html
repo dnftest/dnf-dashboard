@@ -26,6 +26,15 @@
     .refresh-btn { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 140px; transition: all 0.2s ease; }
     .refresh-btn:hover { background-color: #2a2a2a; border-color: var(--text-sub); }
     
+    /* 💡 시스템 안내(유의사항) 패널 디자인 */
+    .notice-panel {
+      max-width: 1200px; margin: 0 auto 15px auto; padding: 12px 16px;
+      background-color: rgba(77, 166, 255, 0.05); border: 1px solid rgba(77, 166, 255, 0.3);
+      border-radius: 8px; font-size: 13px; color: var(--text-sub); line-height: 1.6;
+    }
+    .notice-panel strong { color: var(--accent-color); font-weight: 600; }
+    .notice-title { font-weight: 700; color: var(--text-main); margin-bottom: 4px; display: block; font-size: 14px; }
+
     .tabs-container { display: flex; gap: 10px; max-width: 1200px; margin: 0 auto; overflow-x: auto; padding-bottom: 8px; }
     .tabs-container::-webkit-scrollbar { height: 6px; }
     .tabs-container::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 4px; }
@@ -39,7 +48,6 @@
     .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s ease; cursor: pointer; position: relative; overflow: hidden; }
     .card:hover { transform: translateY(-4px); border-color: var(--accent-color); }
     
-    /* 카드 로딩 오버레이 (개별 카드용) */
     .card-loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30,30,30,0.8); display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: var(--accent-color); z-index: 10; backdrop-filter: blur(2px); }
 
     .card-header { display: flex; justify-content: flex-start; align-items: center; gap: 8px; margin-bottom: 8px; }
@@ -51,7 +59,6 @@
     .change { font-size: 14px; font-weight: 600; }
     .up { color: var(--up-color); } .down { color: var(--down-color); } .flat { color: var(--text-sub); }
     
-    /* 💡 모달(팝업) 윈도우 UI 디자인 */
     .modal-overlay {
       display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.7); z-index: 9999; justify-content: center; align-items: center;
@@ -97,6 +104,14 @@
       </div>
       <button class="refresh-btn" id="refreshBtn" onclick="fetchData()"><span>🔄 새로고침</span></button>
     </div>
+
+    <div class="notice-panel">
+      <span class="notice-title">📢 대시보드 이용 안내</span>
+      • <strong>스마트 절전:</strong> 다른 창을 보거나 게임 중일 때는 서버 한도 보호를 위해 실시간 갱신이 일시 대기 상태로 전환됩니다. (화면 복귀 시 즉시 재개)<br>
+      • <strong>시세 차트:</strong> 원하는 아이템 카드를 클릭하면 1시간 간격의 가격 변동 추이(10:00~02:00)를 팝업으로 확인할 수 있습니다.<br>
+      • <strong>스마트 검색:</strong> '무큐', '조결', '라코', '12증' 등 유저들이 자주 쓰는 은어로도 검색이 가능합니다.
+    </div>
+
     <div class="tabs-container" id="tabs"></div>
   </div>
 
@@ -122,6 +137,7 @@
     let currentCategory = '전체';
     let priceChartInstance = null; 
     let countdownTimer = null, autoFetchTimer = null, timeLeft = 60;
+    let isPageActive = true; 
 
     const searchAliases = {
       "무큐": "무색 큐브 조각", "흰큐": "흰색 큐브 조각", "적큐": "적색 큐브 조각", "청큐": "청색 큐브 조각", "흑큐": "흑색 큐브 조각", "황큐": "황금 큐브 조각", "단무지": "황금 큐브 조각",
@@ -133,6 +149,8 @@
     function formatNumber(num) { return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
 
     async function fetchData() {
+      if (!isPageActive) return;
+
       const dashboard = document.getElementById('dashboard');
       const refreshBtn = document.getElementById('refreshBtn');
       clearInterval(countdownTimer); clearInterval(autoFetchTimer);
@@ -153,11 +171,27 @@
     }
 
     function startAutoRefresh() {
+      if (!isPageActive) return;
       const refreshBtn = document.getElementById('refreshBtn');
       timeLeft = 60; refreshBtn.innerHTML = `🔄 새로고침 (${timeLeft}초)`;
       countdownTimer = setInterval(() => { timeLeft--; if (timeLeft > 0) refreshBtn.innerHTML = `🔄 새로고침 (${timeLeft}초)`; }, 1000);
       autoFetchTimer = setInterval(() => { fetchData(); }, 60000);
     }
+
+    function handleVisibilityChange() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      if (document.visibilityState === 'visible') {
+        isPageActive = true;
+        fetchData(); 
+      } else {
+        isPageActive = false;
+        clearInterval(countdownTimer);
+        clearInterval(autoFetchTimer);
+        refreshBtn.innerHTML = `🔄 절전 모드 (대기)`;
+        refreshBtn.style.opacity = '0.5';
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     function renderTabs() {
       const tabsContainer = document.getElementById('tabs');
@@ -195,21 +229,15 @@
       filteredData.forEach((item, index) => {
         const card = document.createElement('div');
         card.className = 'card';
-        card.id = `card-${index}`;
-
-        // 💡 클릭 시 해당 카드 내부에 로딩 표시 후 모달 오픈
         card.onclick = () => {
           document.getElementById(`loading-${index}`).style.display = 'flex';
           fetchAndRenderChart(item.name, `loading-${index}`);
         };
-
         let changeClass = 'flat'; let changeText = '-';
         if (item.change > 0) { changeClass = 'up'; changeText = `▲ ${formatNumber(item.change)}`; } 
         else if (item.change < 0) { changeClass = 'down'; changeText = `▼ ${formatNumber(Math.abs(item.change))}`; }
-
         const categoryBadge = currentCategory === '전체' ? `<div class="card-category">${item.category}</div>` : '';
         const partBadge = item.part ? `<div class="part-badge">${item.part}</div>` : '';
-
         card.innerHTML = `
           <div class="card-loading" id="loading-${index}">데이터 집계 중...⏳</div>
           <div class="card-header">${categoryBadge}${partBadge}</div>
@@ -223,19 +251,13 @@
       });
     }
 
-    // 💡 차트 전용 API 호출 및 모달 오픈
     async function fetchAndRenderChart(itemName, loadingId) {
       try {
         const response = await fetch(API_URL + "?action=history&item=" + encodeURIComponent(itemName) + "&t=" + new Date().getTime());
         const data = await response.json();
-        
-        // 카드 내 로딩 종료
         document.getElementById(loadingId).style.display = 'none';
-        
-        // 모달 열기 및 차트 그리기
         openModal(itemName);
         renderChartCore(data.history.timestamps, data.history.prices);
-
       } catch (error) {
         const loadingEl = document.getElementById(loadingId);
         loadingEl.innerHTML = "데이터 로드 실패";
@@ -243,41 +265,30 @@
       }
     }
 
-    // 💡 모달 제어 함수
     function openModal(itemName) {
       const modal = document.getElementById('chartModal');
       document.getElementById('chartTitle').innerText = `${itemName} 일일 시세 추이`;
       modal.style.display = 'flex';
-      // 약간의 지연 후 클래스 추가로 부드러운 페이드인 애니메이션 실행
       setTimeout(() => { modal.classList.add('show'); }, 10);
     }
-
     function closeModal() {
       const modal = document.getElementById('chartModal');
       modal.classList.remove('show');
-      // 애니메이션이 끝난 후 display none 처리
       setTimeout(() => { modal.style.display = 'none'; }, 200);
     }
-
-    // 💡 모달 바깥쪽(어두운 배경) 클릭 시 닫기 기능
     window.onclick = function(event) {
       const modal = document.getElementById('chartModal');
       if (event.target === modal) { closeModal(); }
     }
-
-    // 차트 그리기 본체
     function renderChartCore(rawTimes, rawPrices) {
       if(!rawTimes || !rawPrices || rawTimes.length === 0) return;
-
       const labels = [];
       const dataPoints = [];
       let lastHour = -1;
-
       for(let i=0; i<rawTimes.length; i++) {
         const date = new Date(rawTimes[i]);
         const hour = date.getHours();
         const isValidTime = (hour >= 10 && hour <= 23) || (hour >= 0 && hour <= 2);
-        
         if (isValidTime && hour !== lastHour) {
           labels.push(`${hour < 10 ? '0'+hour : hour}:00`);
           let price = parseFloat(rawPrices[i]);
@@ -286,15 +297,12 @@
           lastHour = hour;
         }
       }
-
       if(priceChartInstance) priceChartInstance.destroy();
-
       const ctx = document.getElementById('priceChart').getContext('2d');
       let lineColor = '#4da6ff'; let bgColor = 'rgba(77, 166, 255, 0.1)';
       if(dataPoints.length > 1 && dataPoints[dataPoints.length-1] > dataPoints[0]) {
         lineColor = '#ff4d4d'; bgColor = 'rgba(255, 77, 77, 0.1)';
       }
-
       priceChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
