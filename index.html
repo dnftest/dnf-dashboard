@@ -2,8 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>던파 시세 대시보드</title>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#121212">
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
@@ -12,7 +18,7 @@
       --part-text: #e0e0e0; --up-color: #ff4d4d; --down-color: #4da6ff;
       --border-color: #333333; --star-color: #ffd700;
     }
-    body { margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: var(--text-main); }
+    body { margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: var(--text-main); -webkit-tap-highlight-color: transparent; }
     
     .header-container { position: sticky; top: 0; background-color: rgba(18, 18, 18, 0.95); backdrop-filter: blur(10px); padding: 20px 20px 10px 20px; border-bottom: 1px solid var(--border-color); z-index: 100; }
     .header-top { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 15px auto; flex-wrap: wrap; gap: 10px; }
@@ -25,8 +31,14 @@
 
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     
+    /* 💡 동기화 시간 UI를 감싸는 래퍼 */
+    .sync-wrapper { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    
     .refresh-btn { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 150px; transition: all 0.2s ease; }
     .refresh-btn:hover { background-color: #2a2a2a; border-color: var(--text-sub); }
+    
+    /* 💡 마지막 동기화 시간 텍스트 */
+    .sync-time { font-size: 11px; color: var(--text-sub); font-weight: 500; letter-spacing: 0.3px; }
     
     .notice-panel { position: relative; max-width: 1200px; margin: 0 auto 15px auto; padding: 12px 35px 12px 16px; background-color: rgba(77, 166, 255, 0.05); border: 1px solid rgba(77, 166, 255, 0.3); border-radius: 8px; font-size: 13px; color: var(--text-sub); line-height: 1.6; }
     .notice-panel strong { color: var(--accent-color); font-weight: 600; }
@@ -40,18 +52,15 @@
     .tabs-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
     .tab-btn { background-color: transparent; color: var(--text-sub); border: 1px solid transparent; padding: 8px 16px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; flex-shrink: 0; }
     .tab-btn.active { background-color: rgba(77, 166, 255, 0.1); color: var(--accent-color); border-color: var(--accent-color); }
-    
-    /* 💡 관심종목 탭 컬러 강조 */
     .tab-btn.fav-tab { color: var(--star-color); }
     .tab-btn.fav-tab.active { background-color: rgba(255, 215, 0, 0.1); border-color: var(--star-color); }
 
-    .content-wrapper { padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .content-wrapper { padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; padding-bottom: 80px; }
     .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
     
     .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s ease; cursor: pointer; position: relative; overflow: hidden; }
     .card:hover { transform: translateY(-4px); border-color: var(--accent-color); }
     
-    /* 💡 관심종목 별 아이콘 */
     .fav-icon { position: absolute; top: 15px; right: 15px; font-size: 20px; color: var(--text-sub); cursor: pointer; transition: color 0.2s, transform 0.2s; z-index: 5; user-select: none; }
     .fav-icon:hover { transform: scale(1.2); }
     .fav-icon.active { color: var(--star-color); }
@@ -67,6 +76,19 @@
     .change { font-size: 14px; font-weight: 600; }
     .up { color: var(--up-color); } .down { color: var(--down-color); } .flat { color: var(--text-sub); }
     
+    /* 💡 플로팅 TOP 버튼 디자인 */
+    .scroll-top-btn {
+      position: fixed; bottom: 20px; right: 20px; width: 45px; height: 45px;
+      background-color: var(--card-bg); color: var(--text-main);
+      border: 1px solid var(--border-color); border-radius: 50%;
+      font-size: 20px; font-weight: bold; cursor: pointer;
+      display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 90;
+      opacity: 0; pointer-events: none; transform: translateY(10px); transition: all 0.3s ease;
+    }
+    .scroll-top-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .scroll-top-btn:hover { background-color: var(--accent-color); border-color: var(--accent-color); color: #fff; }
+
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.2s ease; }
     .modal-overlay.show { opacity: 1; }
     .modal-content { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; width: 90%; max-width: 800px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; transform: translateY(20px); transition: transform 0.2s ease; }
@@ -81,9 +103,10 @@
     canvas { max-height: 350px; width: 100%; margin-bottom: 5px; }
 
     @media (max-width: 600px) { 
-      .header-actions { width: 100%; justify-content: space-between; }
-      .search-container { max-width: 100%; width: 100%; margin: 0; } 
-      .refresh-btn { flex: 1; min-width: auto; }
+      .header-actions { width: 100%; justify-content: space-between; align-items: flex-start; }
+      .search-container { max-width: 100%; width: 100%; margin: 0 0 10px 0; } 
+      .sync-wrapper { flex: 1; align-items: flex-end; width: 100%; }
+      .refresh-btn { width: 100%; min-width: auto; }
       .modal-content { padding: 15px; }
       canvas { max-height: 250px; }
     }
@@ -99,7 +122,10 @@
           <span class="search-icon">🔍</span>
           <input type="text" id="searchInput" class="search-input" placeholder="아이템 검색 (예: 무큐, 조결)" autocomplete="off">
         </div>
-        <button class="refresh-btn" id="refreshBtn" onclick="fetchData()"><span>🔄 새로고침</span></button>
+        <div class="sync-wrapper">
+          <button class="refresh-btn" id="refreshBtn" onclick="fetchData()"><span>🔄 새로고침</span></button>
+          <div id="lastSyncTime" class="sync-time">마지막 동기화: -</div>
+        </div>
       </div>
     </div>
 
@@ -117,6 +143,8 @@
   <div class="content-wrapper">
     <div class="grid-container" id="dashboard"><div style="text-align:center; padding: 60px 0; color: #a0a0a0;">데이터를 불러오는 중입니다...</div></div>
   </div>
+
+  <button id="scrollTopBtn" class="scroll-top-btn" onclick="scrollToTop()" title="맨 위로 가기">↑</button>
 
   <div class="modal-overlay" id="chartModal">
     <div class="modal-content">
@@ -141,7 +169,6 @@
     let timeLeft = 300; 
     let isPageActive = true; 
     
-    // 💡 관심종목(Favorites) 저장소 초기화
     let favoriteItems = JSON.parse(localStorage.getItem('dnfFavorites')) || [];
 
     const searchAliases = {
@@ -167,9 +194,31 @@
       return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
-    // 💡 관심종목 토글 함수
+    // 💡 동기화 시간 업데이트 함수
+    function updateSyncTime() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      document.getElementById('lastSyncTime').innerText = `마지막 동기화: ${hh}:${mm}:${ss}`;
+    }
+
+    // 💡 TOP 버튼 스크롤 이벤트
+    window.addEventListener('scroll', () => {
+      const topBtn = document.getElementById('scrollTopBtn');
+      if (window.scrollY > 300) {
+        topBtn.classList.add('visible');
+      } else {
+        topBtn.classList.remove('visible');
+      }
+    });
+
+    function scrollToTop() {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function toggleFavorite(itemName, event) {
-      event.stopPropagation(); // 모달이 함께 열리는 것을 방지
+      event.stopPropagation();
       const index = favoriteItems.indexOf(itemName);
       if (index > -1) {
         favoriteItems.splice(index, 1);
@@ -178,7 +227,6 @@
       }
       localStorage.setItem('dnfFavorites', JSON.stringify(favoriteItems));
       
-      // 현재 탭이 '관심종목'일 때 모두 지워지면 전체 탭으로 이동
       if (currentCategory === '⭐ 관심종목' && index > -1) {
         if (favoriteItems.length === 0) {
           currentCategory = '전체';
@@ -195,6 +243,7 @@
       const refreshBtn = document.getElementById('refreshBtn');
       clearInterval(countdownTimer); clearInterval(autoFetchTimer);
       refreshBtn.innerHTML = '⏳ 갱신 중...'; refreshBtn.style.opacity = '0.7'; refreshBtn.disabled = true;
+      document.getElementById('lastSyncTime').innerText = `동기화 진행 중...`;
 
       try {
         const response = await fetch(API_URL + "?action=current&t=" + new Date().getTime());
@@ -202,8 +251,10 @@
         globalData = resultJSON.current;
         renderTabs(); 
         renderCards(); 
+        updateSyncTime(); // 성공 시 시간 갱신
       } catch (error) {
         dashboard.innerHTML = `<div style="text-align:center; padding: 60px 0; color: #ff4d4d;">데이터 로드 실패</div>`;
+        document.getElementById('lastSyncTime').innerText = `통신 에러 발생`;
       } finally {
         refreshBtn.style.opacity = '1'; refreshBtn.disabled = false;
         startAutoRefresh();
@@ -239,7 +290,6 @@
       const tabsContainer = document.getElementById('tabs');
       const categories = ['전체'];
       
-      // 관심종목이 1개라도 있으면 탭 생성
       if (favoriteItems.length > 0) {
         categories.push('⭐ 관심종목');
       }
@@ -265,7 +315,6 @@
       const rawSearchTerm = document.getElementById('searchInput').value.trim();
       const safeSearchTerm = rawSearchTerm.replace(/\s+/g, '');
 
-      // 💡 가벼워진 필터링 로직
       let filteredData = globalData.filter(item => {
         if (currentCategory === '⭐ 관심종목') {
           if (!favoriteItems.includes(item.name)) return false;
