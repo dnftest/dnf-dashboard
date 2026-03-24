@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>던파 시세 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-color: #121212; --card-bg: #1e1e1e; --text-main: #ffffff;
+      --text-sub: #a0a0a0; --accent-color: #4da6ff; --part-bg: #333333;
+      --part-text: #e0e0e0; --up-color: #ff4d4d; --down-color: #4da6ff;
+      --border-color: #333333;
+    }
+    body { margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: var(--text-main); }
+    .header-container { position: sticky; top: 0; background-color: rgba(18, 18, 18, 0.95); backdrop-filter: blur(10px); padding: 20px 20px 10px 20px; border-bottom: 1px solid var(--border-color); z-index: 100; }
+    .header-top { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto 15px auto; flex-wrap: wrap; gap: 10px; }
+    .header-top h1 { margin: 0; font-size: 24px; letter-spacing: -0.5px; }
+    
+    .search-container { flex: 1; max-width: 300px; margin: 0 15px; position: relative; }
+    .search-input { width: 100%; box-sizing: border-box; background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-main); padding: 10px 15px 10px 35px; border-radius: 8px; font-size: 14px; transition: all 0.2s ease; }
+    .search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.2); }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--text-sub); }
+
+    .refresh-btn { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 140px; transition: all 0.2s ease; }
+    .refresh-btn:hover { background-color: #2a2a2a; border-color: var(--text-sub); }
+    .tabs-container { display: flex; gap: 10px; max-width: 1200px; margin: 0 auto; overflow-x: auto; padding-bottom: 8px; }
+    .tabs-container::-webkit-scrollbar { height: 6px; }
+    .tabs-container::-webkit-scrollbar-track { background: var(--bg-color); border-radius: 4px; }
+    .tabs-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+    .tab-btn { background-color: transparent; color: var(--text-sub); border: 1px solid transparent; padding: 8px 16px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; flex-shrink: 0; }
+    .tab-btn.active { background-color: rgba(77, 166, 255, 0.1); color: var(--accent-color); border-color: var(--accent-color); }
+
+    .content-wrapper { padding: 20px; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    
+    .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: all 0.2s ease; cursor: pointer; }
+    .card:hover { transform: translateY(-4px); border-color: var(--accent-color); }
+    .card.selected { border-color: var(--accent-color); box-shadow: 0 0 10px rgba(77, 166, 255, 0.3); }
+    
+    .card-header { display: flex; justify-content: flex-start; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .card-category { font-size: 12px; color: var(--accent-color); font-weight: 600; }
+    .part-badge { background-color: var(--part-bg); color: var(--part-text); font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 6px; }
+    .item-name { font-size: 16px; font-weight: 600; margin-bottom: 15px; }
+    .price-container { display: flex; justify-content: space-between; align-items: flex-end; }
+    .price { font-size: 22px; font-weight: 700; }
+    .change { font-size: 14px; font-weight: 600; }
+    .up { color: var(--up-color); } .down { color: var(--down-color); } .flat { color: var(--text-sub); }
+    
+    /* 차트 영역 */
+    .chart-container { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; margin-top: 10px; display: none; position: relative; }
+    .chart-container.active { display: block; }
+    .chart-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
+    .chart-title { font-size: 18px; font-weight: 700; color: var(--accent-color); }
+    canvas { max-height: 300px; width: 100%; }
+    
+    /* 로딩 애니메이션 */
+    .chart-loading { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30,30,30,0.8); display: none; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: var(--accent-color); border-radius: 12px; }
+
+    @media (max-width: 600px) { .search-container { max-width: 100%; margin: 10px 0; order: 3; } .header-top { justify-content: space-between; } }
+  </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <div class="header-top">
+      <h1>던파 시세 대시보드</h1>
+      <div class="search-container">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input" placeholder="아이템 검색 (예: 무큐, 조결)" autocomplete="off">
+      </div>
+      <button class="refresh-btn" id="refreshBtn" onclick="fetchData()"><span>🔄 새로고침</span></button>
+    </div>
+    <div class="tabs-container" id="tabs"></div>
+  </div>
+
+  <div class="content-wrapper">
+    <div class="grid-container" id="dashboard"><div style="text-align:center; padding: 60px 0; color: #a0a0a0;">데이터를 불러오는 중입니다...</div></div>
+    
+    <div class="chart-container" id="chartSection">
+      <div class="chart-loading" id="chartLoading">데이터 분석 중...⏳</div>
+      <div class="chart-header">
+        <div class="chart-title" id="chartTitle">아이템 변동 추이</div>
+        <div style="font-size: 12px; color: var(--text-sub);">10:00 ~ 02:00 (1시간 간격)</div>
+      </div>
+      <canvas id="priceChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxQnFdUotaLTWhYhkzJkbr8kWb6r4FDhn5KD0hIzxyG4NtPdzbZ0GKMAIgelgygphSrJA/exec";
+    
+    let globalData = []; 
+    let currentCategory = '전체';
+    let selectedItemName = null; 
+    let priceChartInstance = null; 
+    let countdownTimer = null, autoFetchTimer = null, timeLeft = 60;
+
+    const searchAliases = {
+      "무큐": "무색 큐브 조각", "흰큐": "흰색 큐브 조각", "적큐": "적색 큐브 조각", "청큐": "청색 큐브 조각", "흑큐": "흑색 큐브 조각", "황큐": "황금 큐브 조각", "단무지": "황금 큐브 조각",
+      "라코": "라이언 코어", "응라코": "응축된 라이언 코어", "조결": "조화의 결정체", "모순": "모순의 결정체", "힘정": "힘의 정수", "에소": "에픽 소울", "농원큐": "농밀한 이계의 정수", "골베": "골든 베릴", "무결골베": "무결점 골든 베릴",
+      "증보권": "장비 증폭 보호권", "장보권": "장비 보호권", "황증": "순수한 황금 증폭서", "순황증": "순수한 황금 증폭서", "고황증": "고대의 황금 증폭서", "10증": "+10 장비 증폭권", "11증": "+11 장비 증폭권", "12증": "+12 장비 증폭권", "11강": "+11 장비 강화권", "12강": "+12 장비 강화권",
+      "왜차큐": "왜곡된 차원의 큐브", "왜큐": "왜곡된 차원의 큐브", "이차큐": "이질적인 차원의 큐브", "단조": "불의 숨결 단조", "짙심": "짙은 심연의 편린", "클레압": "클론 레어 아바타", "찬엠블": "찬란한 엠블렘", "화엠블": "화려한 엠블렘", "플티": "플래티넘 엠블렘"
+    };
+
+    function formatNumber(num) { return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+    // 💡 1. 초기 통신 최적화: '?action=current'를 통해 가벼운 현재가만 호출
+    async function fetchData() {
+      const dashboard = document.getElementById('dashboard');
+      const refreshBtn = document.getElementById('refreshBtn');
+      clearInterval(countdownTimer); clearInterval(autoFetchTimer);
+      refreshBtn.innerHTML = '⏳ 갱신 중...'; refreshBtn.style.opacity = '0.7'; refreshBtn.disabled = true;
+
+      try {
+        const response = await fetch(API_URL + "?action=current&t=" + new Date().getTime());
+        const resultJSON = await response.json();
+        
+        globalData = resultJSON.current;
+        renderTabs(); 
+        renderCards(); 
+        
+        // 새로고침 시 열려있던 차트가 있다면 해당 데이터만 다시 가져오기
+        if(selectedItemName) fetchAndRenderChart(selectedItemName);
+
+      } catch (error) {
+        dashboard.innerHTML = `<div style="text-align:center; padding: 60px 0; color: #ff4d4d;">데이터 로드 실패</div>`;
+      } finally {
+        refreshBtn.style.opacity = '1'; refreshBtn.disabled = false;
+        startAutoRefresh();
+      }
+    }
+
+    function startAutoRefresh() {
+      const refreshBtn = document.getElementById('refreshBtn');
+      timeLeft = 60; refreshBtn.innerHTML = `🔄 새로고침 (${timeLeft}초)`;
+      countdownTimer = setInterval(() => { timeLeft--; if (timeLeft > 0) refreshBtn.innerHTML = `🔄 새로고침 (${timeLeft}초)`; }, 1000);
+      autoFetchTimer = setInterval(() => { fetchData(); }, 60000);
+    }
+
+    function renderTabs() {
+      const tabsContainer = document.getElementById('tabs');
+      const categories = ['전체'];
+      globalData.forEach(item => { if (!categories.includes(item.category)) categories.push(item.category); });
+      tabsContainer.innerHTML = ''; 
+      categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${cat === currentCategory ? 'active' : ''}`;
+        btn.textContent = cat;
+        btn.onclick = () => { currentCategory = cat; document.getElementById('searchInput').value = ''; renderTabs(); renderCards(); };
+        tabsContainer.appendChild(btn);
+      });
+    }
+
+    function renderCards() {
+      const dashboard = document.getElementById('dashboard');
+      dashboard.innerHTML = '';
+      const rawSearchTerm = document.getElementById('searchInput').value.trim();
+      const safeSearchTerm = rawSearchTerm.replace(/\s+/g, '');
+
+      const filteredData = globalData.filter(item => {
+        if (currentCategory !== '전체' && item.category !== currentCategory) return false;
+        if (safeSearchTerm === '') return true;
+        const itemNameSafe = item.name.replace(/\s+/g, '');
+        let isMatch = itemNameSafe.includes(safeSearchTerm);
+        for (let alias in searchAliases) {
+          if (safeSearchTerm.includes(alias) && itemNameSafe.includes(searchAliases[alias].replace(/\s+/g, ''))) isMatch = true;
+        }
+        return isMatch;
+      });
+
+      if (filteredData.length === 0) { dashboard.innerHTML = `<div style="text-align:center; padding: 60px 0; color:#a0a0a0;">검색 결과가 없습니다.</div>`; return; }
+
+      filteredData.forEach(item => {
+        const card = document.createElement('div');
+        card.className = `card ${selectedItemName === item.name ? 'selected' : ''}`;
+        
+        card.onclick = () => {
+          selectedItemName = item.name;
+          renderCards(); 
+          fetchAndRenderChart(item.name); // 💡 카드 클릭 시 차트 데이터 전용 호출
+        };
+
+        let changeClass = 'flat'; let changeText = '-';
+        if (item.change > 0) { changeClass = 'up'; changeText = `▲ ${formatNumber(item.change)}`; } 
+        else if (item.change < 0) { changeClass = 'down'; changeText = `▼ ${formatNumber(Math.abs(item.change))}`; }
+
+        const categoryBadge = currentCategory === '전체' ? `<div class="card-category">${item.category}</div>` : '';
+        const partBadge = item.part ? `<div class="part-badge">${item.part}</div>` : '';
+
+        card.innerHTML = `
+          <div class="card-header">${categoryBadge}${partBadge}</div>
+          <div class="item-name">${item.name}</div>
+          <div class="price-container">
+            <div class="price">${formatNumber(item.price)}</div>
+            <div class="change ${changeClass}">${changeText}</div>
+          </div>
+        `;
+        dashboard.appendChild(card);
+      });
+    }
+
+    // 💡 2. 차트 전용 API 호출 (클릭할 때만 해당 아이템의 데이터를 핀셋 추출)
+    async function fetchAndRenderChart(itemName) {
+      const chartSection = document.getElementById('chartSection');
+      const chartLoading = document.getElementById('chartLoading');
+      
+      chartSection.classList.add('active');
+      document.getElementById('chartTitle').innerText = `${itemName} 일일 시세 추이`;
+      chartSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      
+      // 기존 차트 리셋 및 로딩 화면 표시
+      if(priceChartInstance) priceChartInstance.destroy();
+      chartLoading.style.display = 'flex';
+
+      try {
+        // '?action=history&item=아이템이름' 으로 API 요청
+        const response = await fetch(API_URL + "?action=history&item=" + encodeURIComponent(itemName) + "&t=" + new Date().getTime());
+        const data = await response.json();
+        
+        chartLoading.style.display = 'none'; // 로딩 종료
+        renderChartCore(data.history.timestamps, data.history.prices);
+
+      } catch (error) {
+        chartLoading.innerHTML = "데이터를 불러오는 데 실패했습니다.";
+        setTimeout(() => { chartLoading.style.display = 'none'; }, 2000);
+      }
+    }
+
+    // 💡 차트 그리기 본체
+    function renderChartCore(rawTimes, rawPrices) {
+      if(!rawTimes || !rawPrices || rawTimes.length === 0) return;
+
+      const labels = [];
+      const dataPoints = [];
+      let lastHour = -1;
+
+      for(let i=0; i<rawTimes.length; i++) {
+        const date = new Date(rawTimes[i]);
+        const hour = date.getHours();
+        const isValidTime = (hour >= 10 && hour <= 23) || (hour >= 0 && hour <= 2);
+        
+        if (isValidTime && hour !== lastHour) {
+          labels.push(`${hour < 10 ? '0'+hour : hour}:00`);
+          let price = parseFloat(rawPrices[i]);
+          if(isNaN(price) || price === 0) price = dataPoints.length > 0 ? dataPoints[dataPoints.length-1] : 0;
+          dataPoints.push(price);
+          lastHour = hour;
+        }
+      }
+
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      let lineColor = '#4da6ff'; let bgColor = 'rgba(77, 166, 255, 0.1)';
+      if(dataPoints.length > 1 && dataPoints[dataPoints.length-1] > dataPoints[0]) {
+        lineColor = '#ff4d4d'; bgColor = 'rgba(255, 77, 77, 0.1)';
+      }
+
+      priceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '경매장가', data: dataPoints, borderColor: lineColor, backgroundColor: bgColor, borderWidth: 2,
+            pointBackgroundColor: '#1e1e1e', pointBorderColor: lineColor, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return formatNumber(context.raw) + ' 골드'; } } } },
+          scales: { x: { grid: { color: '#333' }, ticks: { color: '#a0a0a0' } }, y: { grid: { color: '#333' }, ticks: { color: '#a0a0a0', callback: function(value) { return formatNumber(value); } } } },
+          interaction: { intersect: false, mode: 'index' }
+        }
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', () => { renderCards(); });
+    const tabsContainer = document.getElementById('tabs');
+    tabsContainer.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); tabsContainer.scrollLeft += evt.deltaY; } });
+
+    fetchData();
+  </script>
+</body>
+</html>
