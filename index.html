@@ -23,10 +23,6 @@
     .search-input:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.2); }
     .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--text-sub); }
 
-    /* 💡 정렬 드롭다운 스타일 */
-    .sort-select { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 9px 12px; border-radius: 8px; font-size: 14px; cursor: pointer; outline: none; transition: border-color 0.2s; }
-    .sort-select:focus { border-color: var(--accent-color); }
-
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     
     .refresh-btn { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 150px; transition: all 0.2s ease; }
@@ -44,7 +40,8 @@
     .tabs-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
     .tab-btn { background-color: transparent; color: var(--text-sub); border: 1px solid transparent; padding: 8px 16px; border-radius: 20px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; flex-shrink: 0; }
     .tab-btn.active { background-color: rgba(77, 166, 255, 0.1); color: var(--accent-color); border-color: var(--accent-color); }
-    /* 관심종목 탭 강조 */
+    
+    /* 💡 관심종목 탭 컬러 강조 */
     .tab-btn.fav-tab { color: var(--star-color); }
     .tab-btn.fav-tab.active { background-color: rgba(255, 215, 0, 0.1); border-color: var(--star-color); }
 
@@ -81,34 +78,14 @@
     .chart-title-area { display: flex; flex-direction: column; gap: 4px; }
     .chart-title { font-size: 20px; font-weight: 700; color: var(--accent-color); }
     .chart-subtitle { font-size: 13px; color: var(--text-sub); }
-    
-    /* 💡 차트 통계(최고/최저가) 뱃지 */
-    .chart-stats { display: flex; gap: 10px; }
-    .stat-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 6px; background-color: var(--part-bg); }
-    .stat-badge.high { color: var(--up-color); border: 1px solid rgba(255, 77, 77, 0.3); }
-    .stat-badge.low { color: var(--down-color); border: 1px solid rgba(77, 166, 255, 0.3); }
-    
-    canvas { max-height: 300px; width: 100%; margin-bottom: 20px; }
-
-    /* 💡 수수료 계산기 UI */
-    .calculator-panel { background-color: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between; }
-    .calc-input-group { display: flex; align-items: center; gap: 10px; }
-    .calc-label { font-size: 14px; color: var(--text-sub); }
-    .calc-input { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 12px; border-radius: 6px; font-size: 14px; width: 150px; outline: none; }
-    .calc-input:focus { border-color: var(--accent-color); }
-    .calc-result { font-size: 15px; }
-    .calc-result strong { font-size: 18px; font-weight: 700; margin-left: 5px; }
-    .profit-up { color: var(--up-color); }
-    .profit-down { color: var(--down-color); }
+    canvas { max-height: 350px; width: 100%; margin-bottom: 5px; }
 
     @media (max-width: 600px) { 
       .header-actions { width: 100%; justify-content: space-between; }
       .search-container { max-width: 100%; width: 100%; margin: 0; } 
-      .sort-select { flex: 1; }
       .refresh-btn { flex: 1; min-width: auto; }
       .modal-content { padding: 15px; }
-      canvas { max-height: 200px; }
-      .calculator-panel { flex-direction: column; align-items: flex-start; }
+      canvas { max-height: 250px; }
     }
   </style>
 </head>
@@ -122,13 +99,6 @@
           <span class="search-icon">🔍</span>
           <input type="text" id="searchInput" class="search-input" placeholder="아이템 검색 (예: 무큐, 조결)" autocomplete="off">
         </div>
-        <select id="sortSelect" class="sort-select" onchange="renderCards()">
-          <option value="default">기본 정렬</option>
-          <option value="up">급등순 (▲)</option>
-          <option value="down">급락순 (▼)</option>
-          <option value="highPrice">최고가순</option>
-          <option value="lowPrice">최저가순</option>
-        </select>
         <button class="refresh-btn" id="refreshBtn" onclick="fetchData()"><span>🔄 새로고침</span></button>
       </div>
     </div>
@@ -137,8 +107,8 @@
       <button class="notice-close-btn" onclick="closeNotice()" title="다시 보지 않기">✕</button>
       <span class="notice-title">📢 대시보드 이용 안내</span>
       • <strong>⭐ 관심종목:</strong> 카드 우측 상단의 별을 누르면 나만의 관심종목 탭에서 모아볼 수 있습니다.<br>
-      • <strong>📈 스마트 정렬:</strong> 상단 드롭다운을 통해 급등/급락 재화를 1초 만에 포착하세요.<br>
-      • <strong>🧮 실전 트레이딩:</strong> 차트 팝업 하단에 매입가를 입력하면 수수료(3%)를 제외한 순수익을 자동 계산합니다.
+      • <strong>트래픽 보호:</strong> 서버 안정성을 위해 5분 단위로 갱신되며, 화면이 가려지면 스마트 절전 모드로 자동 전환됩니다.<br>
+      • <strong>시세 확인:</strong> 카드를 클릭하여 1시간 간격 차트를 확인하고, '라코', '12증' 등 은어로도 검색해 보세요.
     </div>
 
     <div class="tabs-container" id="tabs"></div>
@@ -156,25 +126,8 @@
           <div class="chart-title" id="chartTitle">아이템 변동 추이</div>
           <div class="chart-subtitle">10:00 ~ 02:00 (1시간 간격)</div>
         </div>
-        <div class="chart-stats">
-          <div class="stat-badge high">당일 고가: <span id="modalHigh">0</span></div>
-          <div class="stat-badge low">당일 저가: <span id="modalLow">0</span></div>
-        </div>
       </div>
-      
       <canvas id="priceChart"></canvas>
-      
-      <div class="calculator-panel">
-        <div class="calc-input-group">
-          <span class="calc-label">매입가 입력:</span>
-          <input type="number" id="calcInput" class="calc-input" placeholder="얼마에 사셨나요?">
-        </div>
-        <div class="calc-result">
-          현재가 매도 시 예상 순수익: <strong id="calcResult" class="flat">0 골드</strong>
-          <span style="font-size:12px; color:var(--text-sub); margin-left:5px;">(수수료 3% 제외)</span>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -190,9 +143,6 @@
     
     // 💡 관심종목(Favorites) 저장소 초기화
     let favoriteItems = JSON.parse(localStorage.getItem('dnfFavorites')) || [];
-    
-    // 현재 모달에 띄워진 아이템의 최신 가격 (계산기용)
-    let currentModalPrice = 0;
 
     const searchAliases = {
       "무큐": "무색 큐브 조각", "흰큐": "흰색 큐브 조각", "적큐": "적색 큐브 조각", "청큐": "청색 큐브 조각", "흑큐": "흑색 큐브 조각", "황큐": "황금 큐브 조각", "단무지": "황금 큐브 조각",
@@ -219,16 +169,16 @@
 
     // 💡 관심종목 토글 함수
     function toggleFavorite(itemName, event) {
-      event.stopPropagation(); // 카드 클릭 이벤트(모달 열기) 방지
+      event.stopPropagation(); // 모달이 함께 열리는 것을 방지
       const index = favoriteItems.indexOf(itemName);
       if (index > -1) {
-        favoriteItems.splice(index, 1); // 제거
+        favoriteItems.splice(index, 1);
       } else {
-        favoriteItems.push(itemName); // 추가
+        favoriteItems.push(itemName);
       }
       localStorage.setItem('dnfFavorites', JSON.stringify(favoriteItems));
       
-      // 현재 탭이 '관심종목'인데 별을 해제했다면 탭을 갱신
+      // 현재 탭이 '관심종목'일 때 모두 지워지면 전체 탭으로 이동
       if (currentCategory === '⭐ 관심종목' && index > -1) {
         if (favoriteItems.length === 0) {
           currentCategory = '전체';
@@ -300,7 +250,7 @@
       categories.forEach(cat => {
         const btn = document.createElement('button');
         let classes = `tab-btn ${cat === currentCategory ? 'active' : ''}`;
-        if (cat === '⭐ 관심종목') classes += ' fav-tab'; // 관심종목 탭 특수 스타일
+        if (cat === '⭐ 관심종목') classes += ' fav-tab'; 
         
         btn.className = classes;
         btn.textContent = cat;
@@ -314,11 +264,9 @@
       dashboard.innerHTML = '';
       const rawSearchTerm = document.getElementById('searchInput').value.trim();
       const safeSearchTerm = rawSearchTerm.replace(/\s+/g, '');
-      const sortType = document.getElementById('sortSelect').value;
 
-      // 1. 필터링 로직
+      // 💡 가벼워진 필터링 로직
       let filteredData = globalData.filter(item => {
-        // 관심종목 탭 필터링
         if (currentCategory === '⭐ 관심종목') {
           if (!favoriteItems.includes(item.name)) return false;
         } else if (currentCategory !== '전체' && item.category !== currentCategory) {
@@ -334,4 +282,122 @@
         return isMatch;
       });
 
-      //
+      if (filteredData.length === 0) { dashboard.innerHTML = `<div style="text-align:center; padding: 60px 0; color:#a0a0a0;">표시할 아이템이 없습니다.</div>`; return; }
+
+      filteredData.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.onclick = () => {
+          document.getElementById(`loading-${index}`).style.display = 'flex';
+          fetchAndRenderChart(item.name, `loading-${index}`);
+        };
+        
+        let changeClass = 'flat'; let changeText = '-';
+        if (item.change > 0) { changeClass = 'up'; changeText = `▲ ${formatNumber(item.change)}`; } 
+        else if (item.change < 0) { changeClass = 'down'; changeText = `▼ ${formatNumber(Math.abs(item.change))}`; }
+        
+        const categoryBadge = currentCategory === '전체' ? `<div class="card-category">${item.category}</div>` : '';
+        const partBadge = item.part ? `<div class="part-badge">${item.part}</div>` : '';
+        
+        const isFav = favoriteItems.includes(item.name);
+        const starIcon = `<div class="fav-icon ${isFav ? 'active' : ''}" onclick="toggleFavorite('${item.name}', event)">${isFav ? '⭐' : '☆'}</div>`;
+
+        card.innerHTML = `
+          ${starIcon}
+          <div class="card-loading" id="loading-${index}">데이터 집계 중...⏳</div>
+          <div class="card-header">${categoryBadge}${partBadge}</div>
+          <div class="item-name">${item.name}</div>
+          <div class="price-container">
+            <div class="price">${formatNumber(item.price)}</div>
+            <div class="change ${changeClass}">${changeText}</div>
+          </div>
+        `;
+        dashboard.appendChild(card);
+      });
+    }
+
+    async function fetchAndRenderChart(itemName, loadingId) {
+      try {
+        const response = await fetch(API_URL + "?action=history&item=" + encodeURIComponent(itemName) + "&t=" + new Date().getTime());
+        const data = await response.json();
+        
+        document.getElementById(loadingId).style.display = 'none';
+        openModal(itemName);
+        renderChartCore(data.history.timestamps, data.history.prices);
+      } catch (error) {
+        const loadingEl = document.getElementById(loadingId);
+        loadingEl.innerHTML = "데이터 로드 실패";
+        setTimeout(() => { loadingEl.style.display = 'none'; }, 2000);
+      }
+    }
+
+    function openModal(itemName) {
+      const modal = document.getElementById('chartModal');
+      document.getElementById('chartTitle').innerText = `${itemName} 일일 시세 추이`;
+      modal.style.display = 'flex';
+      setTimeout(() => { modal.classList.add('show'); }, 10);
+    }
+    
+    function closeModal() {
+      const modal = document.getElementById('chartModal');
+      modal.classList.remove('show');
+      setTimeout(() => { modal.style.display = 'none'; }, 200);
+    }
+    
+    window.onclick = function(event) {
+      const modal = document.getElementById('chartModal');
+      if (event.target === modal) { closeModal(); }
+    }
+
+    function renderChartCore(rawTimes, rawPrices) {
+      if(!rawTimes || !rawPrices || rawTimes.length === 0) return;
+      const labels = [];
+      const dataPoints = [];
+      let lastHour = -1;
+      
+      for(let i=0; i<rawTimes.length; i++) {
+        const date = new Date(rawTimes[i]);
+        const hour = date.getHours();
+        const isValidTime = (hour >= 10 && hour <= 23) || (hour >= 0 && hour <= 2);
+        if (isValidTime && hour !== lastHour) {
+          labels.push(`${hour < 10 ? '0'+hour : hour}:00`);
+          let price = parseFloat(rawPrices[i]);
+          if(isNaN(price) || price === 0) price = dataPoints.length > 0 ? dataPoints[dataPoints.length-1] : 0;
+          dataPoints.push(price);
+          lastHour = hour;
+        }
+      }
+
+      if(priceChartInstance) priceChartInstance.destroy();
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      let lineColor = '#4da6ff'; let bgColor = 'rgba(77, 166, 255, 0.1)';
+      if(dataPoints.length > 1 && dataPoints[dataPoints.length-1] > dataPoints[0]) {
+        lineColor = '#ff4d4d'; bgColor = 'rgba(255, 77, 77, 0.1)';
+      }
+      priceChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '경매장가', data: dataPoints, borderColor: lineColor, backgroundColor: bgColor, borderWidth: 2,
+            pointBackgroundColor: '#1e1e1e', pointBorderColor: lineColor, pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return formatNumber(context.raw) + ' 골드'; } } } },
+          scales: { x: { grid: { color: '#333' }, ticks: { color: '#a0a0a0' } }, y: { grid: { color: '#333' }, ticks: { color: '#a0a0a0', callback: function(value) { return formatNumber(value); } } } },
+          interaction: { intersect: false, mode: 'index' }
+        }
+      });
+    }
+
+    document.getElementById('searchInput').addEventListener('input', () => { renderCards(); });
+    
+    const tabsContainer = document.getElementById('tabs');
+    tabsContainer.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); tabsContainer.scrollLeft += evt.deltaY; } });
+
+    fetchData();
+  </script>
+</body>
+</html>
